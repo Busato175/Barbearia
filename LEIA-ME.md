@@ -1,19 +1,30 @@
-# Barbearia — back-end Django + MySQL
+# Barbearia — back-end Django
 
 Este pacote contém o projeto original reorganizado e APIs JSON para o front-end. **Não inclui banco de dados, senha, venv nem backup SQL.**
 
+## Banco local ou remoto
+
+O projeto carrega as configurações de um arquivo `.env` na pasta do projeto. Copie `.env.exemplo` para `.env` e preencha as credenciais localmente; o `.env` já está ignorado pelo Git. Cada execução do Django usa um único banco padrão:
+
+- **MySQL local:** `DB_ENGINE=mysql`, `MYSQL_HOST=localhost`, porta `3306`, e as demais variáveis `MYSQL_*`.
+- **PostgreSQL local:** `DB_ENGINE=postgresql`, `POSTGRES_HOST=localhost`, porta `5432`, e as demais variáveis `POSTGRES_*`.
+- **PostgreSQL remoto (por exemplo, Neon):** defina `DATABASE_URL` com a URL fornecida pelo provedor, incluindo `?sslmode=require` quando exigido. Ela tem prioridade sobre `DB_ENGINE`.
+- **SQLite local para desenvolvimento:** `DB_ENGINE=sqlite`; o arquivo padrão fica em `db.sqlite3`.
+
+Instale as dependências com `pip install -r requirements.txt`, aplique `python manage.py migrate` no banco selecionado e inicie com `python manage.py runserver`. O Django Admin grava no banco configurado como `default`. Para que alterações feitas localmente apareçam no site remoto, ambas as execuções devem apontar ao mesmo banco remoto; bancos local e remoto distintos não sincronizam dados automaticamente. Não troque o banco depois de criar registros esperando que eles sejam copiados.
+
+O painel administrativo incluído neste projeto é o Django Admin em `/admin/`. A página inicial `/` é apenas uma página de boas-vindas; o dashboard personalizado mostrado nas imagens não está neste repositório. Para persistir operações desse dashboard, o respectivo front-end precisa enviar as alterações ao backend e usar a mesma base de dados.
+
 ## Atenção: estado de validação
 
-As migrations 0003 e 0004 foram escritas para preservar o histórico de 0001/0002 e importar profissionais/serviços antigos. **Não foi possível executar Django/MySQL neste ambiente**. Faça primeiro um backup SQL atualizado e valide as migrations em cópia do banco, antes de aplicar ao banco principal.
+As migrations 0003 e 0004 foram escritas para preservar o histórico de 0001/0002 e importar profissionais/serviços antigos. Faça primeiro um backup atualizado e valide as migrations em uma cópia do banco, antes de aplicar ao banco principal.
 
 ## Instalação no Windows (PowerShell)
 
 1. Extraia em uma pasta nova, sem sobrescrever o projeto original.
 2. Ative o ambiente virtual existente ou crie outro (`py -m venv venv`; `.\venv\Scripts\Activate.ps1`).
 3. `pip install -r requirements.txt`
-4. Configure variáveis de ambiente no PowerShell (o Django não lê `.env` automaticamente):
-   `$env:MYSQL_PASSWORD = 'SUA_SENHA'`
-   `$env:DJANGO_SECRET_KEY = 'CHAVE_LONGA_ALEATORIA'`
+4. Copie `.env.exemplo` para `.env` e preencha as configurações do banco desejado. O Django carrega esse arquivo automaticamente. Para alternar entre local e remoto, ajuste `DB_ENGINE`/`MYSQL_HOST`, `DB_ENGINE`/`POSTGRES_HOST` ou `DATABASE_URL` conforme a seção anterior.
 5. Faça backup do MySQL, teste em cópia, depois rode:
    `python manage.py check`
    `python manage.py migrate --plan`
@@ -42,5 +53,5 @@ A migration 0004 copia barbeiros e serviços legados para os apps dedicados, rel
 
 - E-mail padrão vai ao console; SMTP exige configuração.
 - Horários calculados em intervalos de 15 minutos, com jornadas e bloqueios cadastrados no admin.
-- Não inclui pagamento online, login de cliente, cancelamento autenticado ou testes integrados em MySQL.
+- Não inclui pagamento online, login de cliente, cancelamento autenticado ou testes integrados nos bancos remotos.
 - Recomenda-se trocar a senha MySQL anteriormente exposta em conversas/arquivos.

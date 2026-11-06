@@ -12,8 +12,12 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from pathlib import Path
 import os
+from urllib.parse import parse_qsl, unquote, urlparse
+
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-only-change-before-production')
 DEBUG = os.environ.get('DJANGO_DEBUG', '1') == '1'
@@ -74,15 +78,74 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'barbearia.wsgi.application'
 
+def _database_config(environment=None):
+    env = os.environ if environment is None else environment
+    database_url = env.get('DATABASE_URL', '').strip()
+
+    if database_url:
+        parsed_url = urlparse(database_url)
+        if (
+            parsed_url.scheme not in ('postgres', 'postgresql')
+            or not parsed_url.hostname
+            or not parsed_url.path.strip('/')
+        ):
+            raise ValueError(
+                'DATABASE_URL precisa ser uma URL PostgreSQL válida.'
+            )
+
+        options = dict(parse_qsl(parsed_url.query))
+        if env.get('POSTGRES_SSLMODE'):
+            options['sslmode'] = env['POSTGRES_SSLMODE']
+
+        return {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': unquote(parsed_url.path.lstrip('/')),
+            'USER': unquote(parsed_url.username or ''),
+            'PASSWORD': unquote(parsed_url.password or ''),
+            'HOST': parsed_url.hostname,
+            'PORT': str(parsed_url.port or 5432),
+            'OPTIONS': options,
+        }
+
+    engine = env.get('DB_ENGINE', 'mysql').strip().lower()
+    if engine in ('postgres', 'postgresql'):
+        return {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env.get('POSTGRES_DB', 'barbearia_db'),
+            'USER': env.get('POSTGRES_USER', 'postgres'),
+            'PASSWORD': env.get('POSTGRES_PASSWORD', ''),
+            'HOST': env.get('POSTGRES_HOST', 'localhost'),
+            'PORT': env.get('POSTGRES_PORT', '5432'),
+            'OPTIONS': (
+                {'sslmode': env['POSTGRES_SSLMODE']}
+                if env.get('POSTGRES_SSLMODE')
+                else {}
+            ),
+        }
+
+    if engine == 'mysql':
+        return {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': env.get('MYSQL_DATABASE', 'barbearia_db'),
+            'USER': env.get('MYSQL_USER', 'root'),
+            'PASSWORD': env.get('MYSQL_PASSWORD', ''),
+            'HOST': env.get('MYSQL_HOST', 'localhost'),
+            'PORT': env.get('MYSQL_PORT', '3306'),
+        }
+
+    if engine == 'sqlite':
+        return {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': env.get('SQLITE_NAME', str(BASE_DIR / 'db.sqlite3')),
+        }
+
+    raise ValueError(
+        'DB_ENGINE deve ser mysql, postgresql ou sqlite.'
+    )
+
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('MYSQL_DATABASE', 'barbearia_db'),
-        'USER': os.environ.get('MYSQL_USER', 'root'),
-        'PASSWORD': os.environ.get('MYSQL_PASSWORD', '5263964'),
-        'HOST': os.environ.get('MYSQL_HOST', 'localhost'),
-        'PORT': os.environ.get('MYSQL_PORT', '3306'),
-    }
+    'default': _database_config(),
 }
 
 AUTH_PASSWORD_VALIDATORS = [
